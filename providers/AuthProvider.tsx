@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
@@ -12,33 +12,42 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  loading:boolean;
-  error:string|null;
+  loading: boolean;
+  error: string | null;
   loginWithOAuth: (provider: "google" | "github") => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
-  user:null,
-  loading:true,
-  error:null,
+  user: null,
+  loading: true,
+  error: null,
   loginWithOAuth: () => {},
   logout: () => {},
 });
 
-export const AuthProvider = ({children}:{children:ReactNode}) => {
-  const { data:session, status } = useSession();
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  return (
+    <SessionProvider>
+      <AuthContextWrapper>{children}</AuthContextWrapper>
+    </SessionProvider>
+  );
+};
+
+const AuthContextWrapper = ({ children }: { children: ReactNode }) => {
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(status === "loading");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (session?.user) {
       setUser({
-        id: session.user.id,
-        name: session.user.name!,
-        email: session.user.email!,
+        id: (session.user as any).id, // Ensure NextAuth user has `id`
+        name: session.user.name || "",
+        email: session.user.email || "",
       });
+      setLoading(false);
     } else {
       axios
         .get("/api/auth/me", { withCredentials: true })
@@ -48,7 +57,11 @@ export const AuthProvider = ({children}:{children:ReactNode}) => {
     }
   }, [session]);
 
-  const loginWithOAuth = (provider: "google" | "github") => signIn(provider);
+  const loginWithOAuth = async (provider: "google" | "github") => {
+    console.log(`OAuth login triggered for ${provider}`);
+    await signIn(provider, { callbackUrl: "/home" });
+  };
+
   const logout = async () => {
     await axios.post("/api/auth/logout");
     await signOut({ redirect: false });
@@ -56,11 +69,9 @@ export const AuthProvider = ({children}:{children:ReactNode}) => {
   };
 
   return (
-    <SessionProvider>
-    <AuthContext.Provider value={{ user, loading:status==='loading', error,loginWithOAuth,logout }}>
+    <AuthContext.Provider value={{ user, loading, error, loginWithOAuth, logout }}>
       {children}
     </AuthContext.Provider>
-    </SessionProvider>
   );
 };
 

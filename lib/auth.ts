@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import { cookies } from "next/headers";
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -8,23 +7,10 @@ if (!JWT_SECRET) {
 }
 
 export const createToken = (userId: string) => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "1d" });
 };
 
-export const setAuthCookies = async (token: string) => {
-  const cookieStore = await cookies(); 
-  cookieStore.set("auth_token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    path: "/",
-  });
-};
-
-export const decodeToken = async () => {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value; 
-
+export const decodeToken = (token: string | undefined) => {
   if (!token) return null;
 
   try {
