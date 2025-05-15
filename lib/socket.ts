@@ -1,13 +1,10 @@
-// lib/socket.ts
-import { io, Socket } from 'socket.io-client';
-
-let socket: Socket | null = null;
-
-export const getSocket = (): Socket => {
-  if (!socket) {
-    socket = io('http://localhost:3001', {
-      transports: ['websocket'],
-    });
-  }
-  return socket;
+export const SOCKET_EVENTS = {
+  CLIENT_UPDATE: 'client-update',
+  SERVER_UPDATE: 'server-update',
+  CLIENT_CODE_CHANGE: "client-code-change",
+  SERVER_CODE_CHANGE: "server-code-change",
+  CODE_UPDATE: 'code:update',
+  WHITEBOARD_UPDATE: 'whiteboard:update',
+  JOIN_ROOM: 'room:join',
+  LEAVE_ROOM: 'room:leave',
 };

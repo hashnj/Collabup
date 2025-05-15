@@ -10,15 +10,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    socketRef.current = io('http://localhost:3001');
+    socketRef.current = io('http://localhost:3000', { transports: ['websocket'] });
     setIsReady(true);
-
     return () => {
       socketRef.current?.disconnect();
     };
   }, []);
 
-  // Don't render children until socket is initialized
   if (!isReady || !socketRef.current) return null;
 
   return (

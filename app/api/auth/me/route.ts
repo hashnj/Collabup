@@ -13,12 +13,12 @@ export async function GET(req: Request) {
     if (!token?.id) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
-
+    // console.log('token id',token.id);
     const user = await User.findById(token.id).select("-password");
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
-
+    // console.log(user);
     return NextResponse.json(user, { status: 200 });
 
   } catch (error) {

@@ -1,6 +1,4 @@
 
-import { SocketProvider } from "@/providers/SocketProvider";
-import { WebRTCProvider } from "@/providers/WebRTCProvider";
 import { Metadata } from "next";
 import React, { ReactNode } from "react";
 
@@ -15,11 +13,9 @@ const HomeLayout = ({ children }: { children: ReactNode }) => {
 			<div className='flex'>
 				<section className='flex min-h-screen flex-1 flex-col '>
 					<div className='w-full'>
-						<SocketProvider>
-							<WebRTCProvider>
+						
 						{children}
-						</WebRTCProvider>
-						</SocketProvider>
+						
 					</div>
 				</section>
 			</div>

@@ -58,13 +58,13 @@ const AuthContextWrapper = ({ children }: { children: ReactNode }) => {
   }, [session]);
 
   const loginWithOAuth = async (provider: "google" | "github") => {
-    console.log(`OAuth login triggered for ${provider}`);
+    // console.log(`OAuth login triggered for ${provider}`);
     await signIn(provider, { callbackUrl: "/home" });
   };
 
   const logout = async () => {
-    await axios.post("/api/auth/logout");
-    await signOut({ redirect: false });
+    // await axios.post("/api/auth/logout");
+    await signOut({ redirect: true, callbackUrl: "/" });
     setUser(null);
   };
 

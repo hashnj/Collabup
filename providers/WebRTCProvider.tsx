@@ -1,155 +1,64 @@
 'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-import { useSocket } from './SocketProvider';
-import { PeerData, UserID } from './types';
+import { createContext, useContext, useEffect, useState } from 'react';
+import DailyIframe, { DailyCall } from '@daily-co/daily-js';
 
 interface WebRTCContextType {
-  localStream: MediaStream | null;
-  peers: PeerData[];
-  joinRoom: (roomId: string, userId: UserID) => void;
+  joinRoom: (roomUrl: string) => void;
   leaveRoom: () => void;
+  localStream: MediaStream | null;
+  remoteStreams: MediaStream[];
 }
 
 const WebRTCContext = createContext<WebRTCContextType | null>(null);
 
+let callObject: DailyCall | null = null; // Singleton instance
+
 export const WebRTCProvider = ({ children }: { children: React.ReactNode }) => {
-  const socket = useSocket();
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [peers, setPeers] = useState<PeerData[]>([]);
-  const peerConnections = useRef<Map<UserID, RTCPeerConnection>>(new Map());
-  const roomRef = useRef<string | null>(null);
-  const userIdRef = useRef<UserID | null>(null);
+  const [remoteStreams, setRemoteStreams] = useState<MediaStream[]>([]);
 
-  const config: RTCConfiguration = {
-    iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      // Add your TURN servers here if needed
-    ],
-  };
+  const joinRoom = async (roomUrl: string) => {
+    if (!roomUrl) return;
+    if (callObject) return; // Prevent duplicate instances
 
-  const createPeer = useCallback(
-    (peerId: UserID, createOffer: boolean) => {
-      const peer = new RTCPeerConnection(config);
-      peerConnections.current.set(peerId, peer);
+    callObject = DailyIframe.createCallObject();
 
-      if (localStream) {
-        localStream.getTracks().forEach((track) => {
-          peer.addTrack(track, localStream);
-        });
+    await callObject.join({ url: roomUrl });
+
+    callObject.on('track-started', (event) => {
+      if (event.participant && event.participant.local) {
+        const localStream = new MediaStream([event.track]);
+        setLocalStream(localStream);
+      } else {
+        const remoteStream = new MediaStream([event.track]);
+        setRemoteStreams((prev) => [...prev, remoteStream]);
       }
-
-      peer.ontrack = (event) => {
-        const remoteStream = event.streams[0];
-        setPeers((prev) => {
-          const exists = prev.find((p) => p.peerId === peerId);
-          if (exists) return prev;
-          return [...prev, { peerId, stream: remoteStream }];
-        });
-      };
-
-      peer.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('ice-candidate', {
-            target: peerId,
-            candidate: event.candidate,
-          });
-        }
-      };
-
-      if (createOffer) {
-        peer
-          .createOffer()
-          .then((offer) => {
-            peer.setLocalDescription(offer);
-            socket.emit('offer', {
-              target: peerId,
-              offer,
-            });
-          });
-      }
-
-      return peer;
-    },
-    [localStream, socket]
-  );
-
-  const joinRoom = async (roomId: string, userId: UserID) => {
-    roomRef.current = roomId;
-    userIdRef.current = userId;
-
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
-    });
-    setLocalStream(stream);
-
-    socket.emit('join-room', { roomId, userId });
-
-    socket.on('user-joined', ({ userId: newUserId }) => {
-      const peer = createPeer(newUserId, true);
     });
 
-    socket.on('offer', async ({ sender, offer }) => {
-      const peer = createPeer(sender, false);
-      await peer.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await peer.createAnswer();
-      await peer.setLocalDescription(answer);
-      socket.emit('answer', {
-        target: sender,
-        answer,
-      });
-    });
-
-    socket.on('answer', async ({ sender, answer }) => {
-      const peer = peerConnections.current.get(sender);
-      if (!peer) return;
-      await peer.setRemoteDescription(new RTCSessionDescription(answer));
-    });
-
-    socket.on('ice-candidate', async ({ sender, candidate }) => {
-      const peer = peerConnections.current.get(sender);
-      if (!peer) return;
-      await peer.addIceCandidate(new RTCIceCandidate(candidate));
-    });
-
-    socket.on('user-left', ({ userId: leavingId }) => {
-      const peer = peerConnections.current.get(leavingId);
-      if (peer) peer.close();
-      peerConnections.current.delete(leavingId);
-      setPeers((prev) => prev.filter((p) => p.peerId !== leavingId));
+    callObject.on('participant-left', (event) => {
+      setRemoteStreams((prev) =>
+        prev.filter((stream) => stream.id !== event.participant.user_id)
+      );
     });
   };
 
   const leaveRoom = () => {
-    const userId = userIdRef.current;
-    const roomId = roomRef.current;
-
-    if (userId && roomId) {
-      socket.emit('leave-room', { roomId, userId });
+    if (callObject) {
+      callObject.leave();
+      callObject.destroy();
+      callObject = null;
+      setLocalStream(null);
+      setRemoteStreams([]);
     }
-
-    peerConnections.current.forEach((peer) => peer.close());
-    peerConnections.current.clear();
-    setPeers([]);
-    setLocalStream(null);
   };
 
   useEffect(() => {
-    return () => {
-      leaveRoom();
-    };
+    return () => leaveRoom(); // Cleanup on unmount
   }, []);
 
   return (
-    <WebRTCContext.Provider value={{ localStream, peers, joinRoom, leaveRoom }}>
+    <WebRTCContext.Provider value={{ joinRoom, leaveRoom, localStream, remoteStreams }}>
       {children}
     </WebRTCContext.Provider>
   );

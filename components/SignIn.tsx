@@ -7,6 +7,7 @@ import CustomInput from "./CustomInput";
 import api from "@/lib/axios";
 import {  Loader2 } from "lucide-react";
 import { signIn } from "next-auth/react";
+import { set } from "mongoose";
 
 const SignIn = () => {
   const router = useRouter();
@@ -18,6 +19,7 @@ const SignIn = () => {
 
   const handleLocalLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     setError("");
 
     if (!email || !password) {
@@ -25,12 +27,11 @@ const SignIn = () => {
       return;
     }
 
-    setLoading(true);
     try {
       const res = signIn("credentials", {
         email,
         password,
-        callbackUrl: "/home", // redirect after login
+        callbackUrl: "/home", 
         redirect: true,
       });
       
@@ -42,7 +43,6 @@ const SignIn = () => {
   };
 
   const handleOAuthLogin = async (provider: "google" | "github") => {
-    console.log(`Trying to login with ${provider}`);
     await loginWithOAuth(provider);
   };
   
