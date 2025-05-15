@@ -9,42 +9,42 @@ const features = [
   {
     title: 'Video Calling',
     description: 'Seamless real-time video communication with crystal-clear audio and zero lag.',
-    image: '/screenshots/home.png',
+    image: '/images/home.png',
   },
   {
     title: 'Screen Sharing',
     description: 'Effortlessly present your screen and collaborate live with your team.',
-    image: '/screenshots/home.png',
+    image: '/images/home.png',
   },
   {
     title: 'Collaborative Whiteboard',
     description: 'Sketch ideas together in real-time with a smooth, interactive canvas.',
-    image: '/screenshots/home.png',
+    image: '/images/home.png',
   },
   {
     title: 'Breakout Rooms',
     description: 'Divide into groups for focused discussions without leaving the session.',
-    image: '/screenshots/home.png',
+    image: '/images/home.png',
   },
   {
     title: 'File Sharing',
     description: 'Instantly upload and share docs, media, and code across participants.',
-    image: '/screenshots/home.png',
+    image: '/images/home.png',
   },
   {
     title: 'Real-Time Notifications',
     description: 'Stay updated with instant alerts for chat, joins, and screen activity.',
-    image: '/screenshots/home.png',
+    image: '/images/home.png',
   },
   {
     title: 'Meeting Recordings',
     description: 'Capture your entire session and revisit key discussions anytime.',
-    image: '/screenshots/home.png',
+    image: '/images/home.png',
   },
   {
     title: 'Code Editor',
     description: 'Collaborate with live syntax-highlighted code for pair programming.',
-    image: '/screenshots/home.png',
+    image: '/images/home.png',
   },
 ]
 
