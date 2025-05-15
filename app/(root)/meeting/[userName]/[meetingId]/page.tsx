@@ -8,6 +8,7 @@ import { Track, LocalParticipant, Room, LocalTrack } from 'livekit-client';
 import { Mic, MicOff, Video, VideoOff, Users, LogOut, File, Code, Settings, ScreenShare, PenBox } from 'lucide-react';
 import { toast } from 'sonner';
 import Whiteboard from '@/components/Meeting/Whiteboard';
+import CodeEditor from '@/components/Meeting/CodeEditor';
 
 const MeetingRoom = () => {
   const { joinRoom, leaveRoom, room } = useLiveKit();
@@ -155,7 +156,7 @@ const MeetingRoom = () => {
             {whiteboardVisible && <div className="h-full p-4 text-white"><Whiteboard /></div>}
           </div>
           <div className={`${codeEditor} bg-gray-800 border-r border-gray-700`}>
-            {codeEditorVisible && <div className="h-full p-4 text-white">Code Editor goes here</div>}
+            {codeEditorVisible && <div className="h-full p-4 text-white"><CodeEditor /></div>}
           </div>
           <div className={`${video} bg-gray-900 overflow-y-auto`}>
             <LiveKitRoom room={room} serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL!} token={token}>
