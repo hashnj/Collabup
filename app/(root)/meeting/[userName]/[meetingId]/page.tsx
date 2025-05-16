@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useLiveKit } from '@/providers/livekitProvider';
 import { LiveKitRoom, VideoTrack, useTracks } from '@livekit/components-react';
 import { Track, LocalParticipant, Room, LocalTrack } from 'livekit-client';
-import { Mic, Video, LogOut, ScreenShare, Users, PenBox, Code, File, Settings } from 'lucide-react';
+import { Mic, Video, Users, LogOut, File, Code, Settings, ScreenShare, PenBox } from 'lucide-react';
 import { toast } from 'sonner';
 import Whiteboard from '@/components/Meeting/Whiteboard';
 import CodeEditor from '@/components/Meeting/CodeEditor';
@@ -16,22 +16,23 @@ const MeetingRoom = () => {
   const [micEnabled, setMicEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
-  const [participants, setParticipants] = useState<string[]>([]);
+  const [showParticipants, setShowParticipants] = useState(false);
   const [whiteboardVisible, setWhiteboardVisible] = useState(false);
   const [codeEditorVisible, setCodeEditorVisible] = useState(false);
-  const [showParticipants, setShowParticipants] = useState(false);
+  const [participants, setParticipants] = useState<string[]>([]);
   const router = useRouter();
   const params = useParams();
-  const meetingid = params?.meetingId;
+  const username = params?.userName as string;
+  const meetingid = params?.meetingId as string;
 
   useEffect(() => {
-    if (meetingid) {
-      joinRoom(meetingid as string, 'guest').then((tk) => {
+    if (username && meetingid) {
+      joinRoom(meetingid, username).then((tk) => {
         if (tk) setToken(tk);
       });
     }
     return () => leaveRoom();
-  }, [meetingid]);
+  }, [username, meetingid]);
 
   useEffect(() => {
     if (room) {
@@ -109,32 +110,68 @@ const MeetingRoom = () => {
     router.push('/');
   };
 
+  const getLayoutWidths = () => {
+    if (whiteboardVisible && codeEditorVisible) {
+      return { whiteboard: 'w-2/5', codeEditor: 'w-2/5', video: 'w-1/5' };
+    }
+    if (whiteboardVisible) {
+      return { whiteboard: 'w-[70%]', codeEditor: 'hidden', video: 'w-[30%]' };
+    }
+    if (codeEditorVisible) {
+      return { whiteboard: 'hidden', codeEditor: 'w-[70%]', video: 'w-[30%]' };
+    }
+    return { whiteboard: 'hidden', codeEditor: 'hidden', video: 'w-full' };
+  };
+
+  const { whiteboard, codeEditor, video } = getLayoutWidths();
+
   if (!room || !token) return <div>Loading...</div>;
 
   return (
     <main className="flex h-screen bg-gray-900 text-white">
+      {showParticipants && (
+        <aside className="w-72 bg-gray-800 p-4 overflow-y-auto border-r border-gray-700">
+          <h3 className="text-lg font-semibold mb-4">Participants</h3>
+          <ul>
+            {participants.map((participant) => (
+              <li key={participant} className="mb-2 bg-gray-700 p-2 rounded hover:bg-gray-600 transition-all">
+                {participant}
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
+
       <div className="flex-grow flex flex-col">
-        <header className="flex justify-between items-center bg-gray-800 p-4">
-          <h2 className="text-lg">Room: {meetingid}</h2>
-          <button onClick={leaveMeeting} className="bg-red-500 px-4 py-2 rounded-md">Leave</button>
+        <header className="flex justify-between items-center bg-gray-800 p-4 rounded-b-lg shadow-lg">
+          <h2 className="text-lg font-semibold">Room: {meetingid}</h2>
+          <button onClick={leaveMeeting} className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-all">
+            <LogOut className="w-5 h-5" />
+            Leave
+          </button>
         </header>
 
-        <div className="flex-grow bg-gray-900 overflow-y-auto">
-          <LiveKitRoom room={room} serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL!} token={token}>
-            <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2">
+        <div className="flex-grow flex">
+          <div className={`${whiteboard} bg-gray-800 border-r border-gray-700`}>
+            {whiteboardVisible && <Whiteboard />}
+          </div>
+          <div className={`${codeEditor} bg-gray-800 border-r border-gray-700`}>
+            {codeEditorVisible && <CodeEditor />}
+          </div>
+          <div className={`${video} bg-gray-900 flex overflow-y-auto`}>
+            <LiveKitRoom room={room} serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL!} token={token}>
               <VideoGrid />
-            </div>
-          </LiveKitRoom>
+            </LiveKitRoom>
+          </div>
         </div>
 
-        <footer className="flex justify-center gap-4 bg-gray-800 p-4">
+        <footer className="flex justify-center gap-4 bg-gray-800 p-4 rounded-t-lg shadow-lg">
           <ControlButton icon={Mic} onClick={toggleMic} active={micEnabled} />
           <ControlButton icon={Video} onClick={toggleVideo} active={videoEnabled} />
           <ControlButton icon={ScreenShare} onClick={toggleScreenShare} active={isSharing} />
           <ControlButton icon={PenBox} onClick={() => setWhiteboardVisible(!whiteboardVisible)} active={whiteboardVisible} />
           <ControlButton icon={Code} onClick={() => setCodeEditorVisible(!codeEditorVisible)} active={codeEditorVisible} />
-          <ControlButton icon={Users} onClick={() => setShowParticipants(!showParticipants)} active={showParticipants} />
-          <ControlButton icon={File} onClick={() => toast("File sharing not implemented yet")} />
+          <ControlButton icon={Users} onClick={() => setShowParticipants(!showParticipants)} />
           <ControlButton icon={Settings} onClick={() => toast("Settings not implemented yet")} />
         </footer>
       </div>
@@ -162,12 +199,12 @@ const VideoGrid = () => {
         <VideoTrack
           key={trackRef.publication.trackSid}
           trackRef={trackRef}
-          className="w-full h-full bg-gray-700 rounded-lg shadow-lg"
-          style={{ transform: 'scaleX(-1)' }}
+          className="w-4/5 bg-gray-700 rounded-lg shadow-lg"
         />
       ))}
     </>
   );
 };
+
 
 export default MeetingRoom;
