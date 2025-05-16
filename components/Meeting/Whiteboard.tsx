@@ -1,7 +1,8 @@
+// components/meeting/Whiteboard.tsx
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { Editor, Tldraw, useEditor } from 'tldraw';
+import { Tldraw, TldrawEditor, useEditor } from 'tldraw';
 import 'tldraw/tldraw.css';
 import { useSocket } from '@/providers/SocketProvider';
 import { SOCKET_EVENTS } from '@/lib/socket';
@@ -14,24 +15,29 @@ const WhiteboardSync = () => {
   useEffect(() => {
     if (!socket || !editor) return;
 
-    const handleChange = () => {
+    // Load initial snapshot if available
+    socket.on(SOCKET_EVENTS.SERVER_UPDATE, (snapshot: any) => {
+      if (snapshot) {
+        console.log("Loading initial snapshot:", snapshot);
+        editor.store.loadSnapshot(snapshot);
+      }
+    });
+
+    // Broadcast local changes
+    const handleLocalChange = () => {
       if (updateTimer.current) clearTimeout(updateTimer.current);
       updateTimer.current = setTimeout(() => {
         const snapshot = editor.store.getSnapshot();
         socket.emit(SOCKET_EVENTS.CLIENT_UPDATE, snapshot);
-      }, 300); 
+      }, 300);
     };
 
-    editor.store.listen(handleChange, { source: 'user' });
+    editor.store.listen(handleLocalChange, { source: 'user' });
 
-    const handleServerUpdate = (snapshot: any) => {
-      editor.store.loadSnapshot(snapshot);
-    };
-
-    socket.on(SOCKET_EVENTS.SERVER_UPDATE, handleServerUpdate);
-
+    // Cleanup on unmount
     return () => {
-      socket.off(SOCKET_EVENTS.SERVER_UPDATE, handleServerUpdate);
+      if (updateTimer.current) clearTimeout(updateTimer.current);
+      socket.off(SOCKET_EVENTS.SERVER_UPDATE);
     };
   }, [socket, editor]);
 
@@ -41,9 +47,11 @@ const WhiteboardSync = () => {
 const Whiteboard = () => {
   return (
     <div className="w-full h-full">
-      <Tldraw persistenceKey="collab-board">
-        <WhiteboardSync />
-      </Tldraw>
+      <TldrawEditor>
+        <Tldraw persistenceKey="collab-board" autoFocus>
+          <WhiteboardSync />
+        </Tldraw>
+      </TldrawEditor>
     </div>
   );
 };

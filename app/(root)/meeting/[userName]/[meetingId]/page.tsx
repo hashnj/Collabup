@@ -195,13 +195,16 @@ const VideoGrid = () => {
 
   return (
     <>
-      {trackRefs.map((trackRef) => (
+      {trackRefs.map((trackRef) => {
+        const isLocal = trackRef.participant.isLocal;
+        return (
         <VideoTrack
           key={trackRef.publication.trackSid}
           trackRef={trackRef}
-          className="w-4/5 bg-gray-700 rounded-lg shadow-lg"
+          className={`w-4/5 bg-gray-700 rounded-lg shadow-lg ${isLocal ? 'transform scale-x-[-1]':''} `}
         />
-      ))}
+        );
+})}
     </>
   );
 };

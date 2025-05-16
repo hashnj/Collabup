@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useEffect, useState } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { javascript } from '@codemirror/lang-javascript';
@@ -12,32 +13,26 @@ const CodeEditor = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleCodeChange = (newCode: string) => {
-      setCode(newCode);
-    };
-
-    socket.on(SOCKET_EVENTS.SERVER_CODE_CHANGE, handleCodeChange);
+    socket.on(SOCKET_EVENTS.SERVER_CODE_CHANGE, setCode);
 
     return () => {
-      socket.off(SOCKET_EVENTS.SERVER_CODE_CHANGE, handleCodeChange);
+      socket.off(SOCKET_EVENTS.SERVER_CODE_CHANGE, setCode);
     };
   }, [socket]);
 
   const onChange = (value: string) => {
     setCode(value);
-    socket?.emit(SOCKET_EVENTS.CLIENT_CODE_CHANGE, value);
+    socket.emit(SOCKET_EVENTS.CLIENT_CODE_CHANGE, value);
   };
 
   return (
-    <div className="h-full w-full p-4 bg-neutral-900 text-white rounded-xl">
-      <CodeMirror
-        value={code}
-        height="500px"
-        theme="dark"
-        extensions={[javascript()]}
-        onChange={(val) => onChange(val)}
-      />
-    </div>
+    <CodeMirror
+      value={code}
+      height="500px"
+      theme="dark"
+      extensions={[javascript()]}
+      onChange={onChange}
+    />
   );
 };
 
