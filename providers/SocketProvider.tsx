@@ -10,7 +10,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    socketRef.current = io('http://localhost:3000', { transports: ['websocket'] });
+    socketRef.current = io('https://collabup-one.vercel.app/', { transports: ['websocket'] });
     setIsReady(true);
     return () => {
       socketRef.current?.disconnect();
