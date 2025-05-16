@@ -18,7 +18,8 @@ const MeetingRoom = () => {
   const [isSharing, setIsSharing] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [whiteboardVisible, setWhiteboardVisible] = useState(false);
-  const [codeEditorVisible, setCodeEditorVisible] = useState(false);
+  const [codeEditorVisible, setCodeEditorVisible] = useState(false);  
+  const [activeComponent, setActiveComponent] = useState<string | null>(null);
   const [participants, setParticipants] = useState<string[]>([]);
   const router = useRouter();
   const params = useParams();
@@ -153,10 +154,10 @@ const MeetingRoom = () => {
 
         <div className="flex-grow flex">
           <div className={`${whiteboard} bg-gray-800 border-r border-gray-700`}>
-            {whiteboardVisible && <Whiteboard />}
+            {whiteboardVisible && <Whiteboard setActiveComponent={setActiveComponent} />}
           </div>
           <div className={`${codeEditor} bg-gray-800 border-r border-gray-700`}>
-            {codeEditorVisible && <CodeEditor />}
+            {codeEditorVisible && <CodeEditor setActiveComponent={setActiveComponent} />}
           </div>
           <div className={`${video} bg-gray-900 flex overflow-y-auto`}>
             <LiveKitRoom room={room} serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL!} token={token}>
@@ -203,7 +204,7 @@ const VideoGrid = () => {
           trackRef={trackRef}
           className={`w-4/5 bg-gray-700 rounded-lg shadow-lg ${isLocal ? 'transform scale-x-[-1]':''} `}
         />
-        );
+        )
 })}
     </>
   );
