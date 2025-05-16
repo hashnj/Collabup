@@ -20,31 +20,31 @@ export const LiveKitProvider = ({ children }: { children: React.ReactNode }) => 
     try {
       const res = await fetch(`/api/token?room=${roomName}&identity=${identity}`);
       const data = await res.json();
-      // console.log("Token data:", data);
-      if (!data.token) {
-        throw new Error("Failed to fetch LiveKit token");
-      }
-
+      if (!data.token) throw new Error("Failed to fetch LiveKit token");
+  
       const newRoom = new Room();
+  
       await newRoom.connect(process.env.NEXT_PUBLIC_LIVEKIT_URL!, data.token);
-
-      const localTracks = await createLocalTracks({ audio: true, video: true });
-      localTracks.forEach(track => newRoom.localParticipant.publishTrack(track));
-
+  
+  const localTracks = await createLocalTracks({ audio: true, video: true });
+  for (const track of localTracks) {
+    await newRoom.localParticipant.publishTrack(track);
+  }
+  
       newRoom.on('participantConnected', (participant) => {
         console.log(`✅ Participant joined: ${participant.identity}`);
       });
-
+  
       newRoom.on('participantDisconnected', (participant) => {
         console.log(`❌ Participant left: ${participant.identity}`);
       });
-
+  
       newRoom.on('disconnected', () => {
         console.log("🔌 Disconnected from room");
         setRoom(null);
         setToken(null);
       });
-
+  
       setRoom(newRoom);
       setToken(data.token);
       return data.token;
