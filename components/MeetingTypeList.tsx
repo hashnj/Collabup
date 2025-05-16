@@ -1,4 +1,3 @@
-// components/MeetingTypeList.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -7,10 +6,9 @@ import { useRouter } from "next/navigation";
 import MeetingModal from "./MeetingModal";
 import { toast } from "sonner";
 import { Textarea } from "./ui/textarea";
-import ReactDatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import { Input } from "./ui/input";
 import { useUser } from "@/hooks/useUser";
+import { format } from "date-fns";
 
 const MeetingTypeList = () => {
   const router = useRouter();
@@ -24,7 +22,6 @@ const MeetingTypeList = () => {
     link: "",
   });
 
-
   const createMeeting = async () => {
     try {
       const id = crypto.randomUUID();
@@ -34,8 +31,8 @@ const MeetingTypeList = () => {
         return;
       }
 
-      if (!values.dateTime) {
-        toast.error("Please select a date and time");
+      if (!values.dateTime || !values.description.trim()) {
+        toast.error("Please enter a description and select a date/time");
         return;
       }
 
@@ -57,7 +54,6 @@ const MeetingTypeList = () => {
 
   return (
     <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-      {/* Instant Meeting */}
       <HomeCard
         img="/icons/add-meeting.svg"
         title="New Meeting"
@@ -66,7 +62,6 @@ const MeetingTypeList = () => {
         className="bg-orange-500"
       />
 
-      {/* Schedule Meeting */}
       <HomeCard
         img="/icons/schedule.svg"
         title="Schedule Meeting"
@@ -75,7 +70,6 @@ const MeetingTypeList = () => {
         className="bg-blue-500"
       />
 
-      {/* Join Meeting */}
       <HomeCard
         img="/icons/join-meeting.svg"
         title="Join Meeting"
@@ -84,7 +78,6 @@ const MeetingTypeList = () => {
         className="bg-yellow-500"
       />
 
-      {/* Personal Room */}
       <HomeCard
         img="/icons/copy.svg"
         title="Personal Room"
@@ -93,29 +86,26 @@ const MeetingTypeList = () => {
         className="bg-purple-500"
       />
 
-      {/* Modals for Different Meeting States */}
       <MeetingModal
         isOpen={meetingState === "isScheduleMeeting"}
         onClose={() => setMeetingState(undefined)}
         title="Schedule a Meeting"
-        handleClick={() => createMeeting()}
+        handleClick={createMeeting}
       >
         <div className="flex flex-col gap-2.5">
           <label className="text-base leading-[22px] text-sky-500">Description</label>
           <Textarea
             className="border bg-neutral-100 dark:bg-neutral-950"
+            value={values.description}
             onChange={(e) => setValues({ ...values, description: e.target.value })}
             placeholder="Meeting description"
           />
           <div className="flex flex-col gap-2.5">
             <label className="text-base leading-[22px] text-sky-500">Select Date and Time</label>
-            <ReactDatePicker
-              selected={values.dateTime}
-              onChange={(date: Date | null) => {
-                if (date) {
-                  setValues({ ...values, dateTime: date });
-                }
-              }}
+            <Input
+              type="datetime-local"
+              value={format(values.dateTime, "yyyy-MM-dd'T'HH:mm")}
+              onChange={(e) => setValues({ ...values, dateTime: new Date(e.target.value) })}
             />
           </div>
         </div>
@@ -125,22 +115,19 @@ const MeetingTypeList = () => {
         isOpen={meetingState === "isInstantMeeting"}
         onClose={() => setMeetingState(undefined)}
         title="Start an Instant Meeting"
-        className="text-center"
         buttonText="Start Meeting"
-        handleClick={() => createMeeting()}
+        handleClick={createMeeting}
       />
 
       <MeetingModal
         isOpen={meetingState === "isJoiningMeeting"}
         onClose={() => setMeetingState(undefined)}
         title="Join a Meeting"
-        className="text-center"
         buttonText="Join Meeting"
         handleClick={joinMeeting}
       >
         <Input
           placeholder="Enter meeting link"
-          className="border-none bg-dark-2"
           value={values.link}
           onChange={(e) => setValues({ ...values, link: e.target.value })}
         />
