@@ -17,6 +17,9 @@ const MeetingRoom = () => {
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [isSharing, setIsSharing] = useState(false);
   const [participants, setParticipants] = useState<string[]>([]);
+  const [whiteboardVisible, setWhiteboardVisible] = useState(false);
+  const [codeEditorVisible, setCodeEditorVisible] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
   const router = useRouter();
   const params = useParams();
   const meetingid = params?.meetingId;
@@ -57,6 +60,17 @@ const MeetingRoom = () => {
     if (audioTrack) {
       micEnabled ? audioTrack.mute() : audioTrack.unmute();
       setMicEnabled(!micEnabled);
+    }
+  };
+
+  const toggleVideo = () => {
+    const localParticipant = room?.localParticipant as LocalParticipant;
+    if (!localParticipant) return;
+
+    const videoTrack = localParticipant.getTrackPublication(Track.Source.Camera)?.track;
+    if (videoTrack) {
+      videoEnabled ? videoTrack.mute() : videoTrack.unmute();
+      setVideoEnabled(!videoEnabled);
     }
   };
 
@@ -112,10 +126,32 @@ const MeetingRoom = () => {
             </div>
           </LiveKitRoom>
         </div>
+
+        <footer className="flex justify-center gap-4 bg-gray-800 p-4">
+          <ControlButton icon={Mic} onClick={toggleMic} active={micEnabled} />
+          <ControlButton icon={Video} onClick={toggleVideo} active={videoEnabled} />
+          <ControlButton icon={ScreenShare} onClick={toggleScreenShare} active={isSharing} />
+          <ControlButton icon={PenBox} onClick={() => setWhiteboardVisible(!whiteboardVisible)} active={whiteboardVisible} />
+          <ControlButton icon={Code} onClick={() => setCodeEditorVisible(!codeEditorVisible)} active={codeEditorVisible} />
+          <ControlButton icon={Users} onClick={() => setShowParticipants(!showParticipants)} active={showParticipants} />
+          <ControlButton icon={File} onClick={() => toast("File sharing not implemented yet")} />
+          <ControlButton icon={Settings} onClick={() => toast("Settings not implemented yet")} />
+        </footer>
       </div>
     </main>
   );
 };
+
+const ControlButton = ({ icon: Icon, onClick, active = true }: { icon: React.ComponentType<{ className: string }>; onClick: () => void; active?: boolean }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center justify-center w-12 h-12 rounded-full transition-all ${
+      active ? "bg-gray-700 hover:bg-gray-600 text-white" : "bg-gray-500 hover:bg-gray-400 text-gray-300"
+    }`}
+  >
+    <Icon className="w-6 h-6" />
+  </button>
+);
 
 const VideoGrid = () => {
   const trackRefs = useTracks([Track.Source.Camera]);
