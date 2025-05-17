@@ -20,11 +20,11 @@ const WhiteboardSync = ({
 
   useEffect(() => {
     if (!editor || !socket || !meetingId) return;
-    console.log("[WhiteboardSync] Joining room:", meetingId);
+    // console.log("[WhiteboardSync] Joining room:", meetingId);
     socket.emit(SOCKET_EVENTS.JOIN_ROOM, { roomId: meetingId });
 
     const onRemoteSnapshot = (snapshot: any) => {
-      console.log("[WhiteboardSync] Received remote whiteboard update");
+      // console.log("[WhiteboardSync] Received remote whiteboard update");
       isRemote.current = true;
       editor.store.loadSnapshot(snapshot);
       isRemote.current = false;
@@ -34,9 +34,9 @@ const WhiteboardSync = ({
 
     const handleChange = () => {
       if (isRemote.current) {
-        console.log(
-          "[WhiteboardSync] Ignoring local change due to remote update."
-        );
+        // console.log(
+          // "[WhiteboardSync] Ignoring local change due to remote update."
+        // );
         return;
       }
 
@@ -45,7 +45,7 @@ const WhiteboardSync = ({
 
       debounceTimer.current = setTimeout(() => {
         const snapshot = editor.store.getSnapshot();
-        console.log("[WhiteboardSync] Broadcasting whiteboard change");
+        // console.log("[WhiteboardSync] Broadcasting whiteboard change");
         socket.emit(SOCKET_EVENTS.CLIENT_WHITEBOARD_UPDATE, {
           roomId: meetingId,
           snapshot,
@@ -58,7 +58,7 @@ const WhiteboardSync = ({
     const unlisten = editor.store.listen(handleChange, { source: "user" });
 
     return () => {
-      console.log("[WhiteboardSync] Leaving room:", meetingId);
+      // console.log("[WhiteboardSync] Leaving room:", meetingId);
       socket.emit(SOCKET_EVENTS.LEAVE_ROOM, { roomId: meetingId });
       socket.off(SOCKET_EVENTS.SERVER_WHITEBOARD_UPDATE, onRemoteSnapshot);
       if (debounceTimer.current) clearTimeout(debounceTimer.current);

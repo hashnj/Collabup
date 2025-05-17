@@ -1,12 +1,11 @@
-import Footer from "@/components/Footer";
-import Navbar from "@/components/Navbar";
-import Sidebar from "@/components/Sidebar";
+
 import { Metadata } from "next";
 import { ReactNode, Suspense } from "react";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/authOptions";
-import { redirect } from "next/navigation";
+
 import { Loader2 } from "lucide-react";
+import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
+import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Collab-Up",
@@ -16,31 +15,28 @@ export const metadata: Metadata = {
 const HomeLayout = async ({ children }: { children: ReactNode }) => {
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <AuthWrapper>{children}</AuthWrapper>
+      <Wrapper> {children} </Wrapper>
     </Suspense>
   );
 };
 
-const AuthWrapper = async ({ children }: { children: ReactNode }) => {
-  const session = await getServerSession(authOptions);
 
-  if (!session) {
-    redirect("/login"); 
-  }
+const Wrapper = async ({ children }: { children: ReactNode }) => {
+  return(
+  <main>
+        <Navbar />
+        <div className="flex">
+          <Sidebar />
+          <section className="flex min-h-screen flex-1 flex-col px-6 pb-6 pt-28 max-md:pb-14 sm:px-14">
+            <div className="w-full">{children}</div>
+            <Footer />
+          </section>
+        </div>
+      </main>
+      );
+}
 
-  return (
-    <main>
-      <Navbar />
-      <div className="flex">
-        <Sidebar />
-        <section className="flex min-h-screen flex-1 flex-col px-6 pb-6 pt-28 max-md:pb-14 sm:px-14">
-          <div className="w-full">{children}</div>
-          <Footer />
-        </section>
-      </div>
-    </main>
-  );
-};
+
 
 // Loader Component
 const LoadingScreen = () => {
