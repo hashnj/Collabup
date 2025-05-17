@@ -20,14 +20,12 @@ const WhiteboardSync = ({
 
   useEffect(() => {
     if (!editor || !socket || !meetingId) return;
-
     console.log("[WhiteboardSync] Joining room:", meetingId);
     socket.emit(SOCKET_EVENTS.JOIN_ROOM, { roomId: meetingId });
 
     const onRemoteSnapshot = (snapshot: any) => {
       console.log("[WhiteboardSync] Received remote whiteboard update");
       isRemote.current = true;
-      // Load the remote snapshot
       editor.store.loadSnapshot(snapshot);
       isRemote.current = false;
     };
