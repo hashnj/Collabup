@@ -5,19 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useLiveKit } from "@/providers/livekitProvider";
 import { LiveKitRoom, VideoTrack, useTracks } from "@livekit/components-react";
 import { Track, LocalParticipant, Room, LocalTrack } from "livekit-client";
-import {
-  Mic,
-  MicOff,
-  VideoOff,
-  Video,
-  Users,
-  LogOut,
-  File,
-  Code,
-  Settings,
-  ScreenShare,
-  PenBox,
-} from "lucide-react";
+import { Mic, MicOff, VideoOff, Video, Users, LogOut, Code, Settings, ScreenShare, PenBox, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import Whiteboard from "@/components/Meeting/Whiteboard";
 import CodeEditor from "@/components/Meeting/CodeEditor";
@@ -129,7 +117,7 @@ const MeetingRoom = () => {
         }
       }
     } catch (error) {
-      console.error("Failed to share screen:", error);
+      // console.error("Failed to share screen:", error);
     }
   };
 
@@ -153,7 +141,11 @@ const MeetingRoom = () => {
 
   const { whiteboard, codeEditor, video } = getLayoutWidths();
 
-  if (!room || !token) return <div>Loading...</div>;
+  if (!room || !token) {return (
+  <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+    <div className=""><Loader2 className="text-3xl  text-blue-500 animate-spin" /></div>
+  </div>
+  );}
 
   return (
     <main className="flex h-screen bg-gray-900 text-white">
@@ -207,7 +199,7 @@ const MeetingRoom = () => {
           </div>
         </div>
 
-        <footer className="flex justify-center gap-4 bg-gray-800 p-4 rounded-t-lg shadow-lg">
+        <footer className=" flex justify-center gap-4 bg-gray-800 p-4 rounded-t-lg shadow-lg">
           <ControlButton
             onIcon={Mic}
             offIcon={MicOff}
@@ -282,7 +274,8 @@ const VideoGrid = () => {
   const trackRefs = useTracks([Track.Source.Camera]);
 
   return (
-    <>
+    <div className="flex flex-col items-center justify-center w-full h-full p-4 m-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full h-full  overflow-hidden">
       {trackRefs.map((trackRef) => {
         const isLocal = trackRef.participant.isLocal;
         return (
@@ -295,7 +288,9 @@ const VideoGrid = () => {
           />
         );
       })}
-    </>
+          </div>
+
+    </ div>
   );
 };
 

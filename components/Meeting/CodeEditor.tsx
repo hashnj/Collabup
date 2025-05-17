@@ -1,3 +1,4 @@
+// file: components/CodeEditor.tsx
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
@@ -16,15 +17,19 @@ const CodeEditor = ({ setActiveComponent }: { setActiveComponent: (comp: string)
   useEffect(() => {
     if (!socket || !meetingId) return;
 
+    console.log('[CodeEditor] Joining room:', meetingId);
+    socket.emit(SOCKET_EVENTS.JOIN_ROOM, { roomId: meetingId });
+
     const onRemoteCode = (newCode: string) => {
+      console.log('[CodeEditor] Received remote code update:', newCode);
       setIsRemote(true);
       setCode(newCode);
     };
 
-    socket.emit(SOCKET_EVENTS.JOIN_ROOM, { roomId: meetingId });
     socket.on(SOCKET_EVENTS.SERVER_CODE_CHANGE, onRemoteCode);
 
     return () => {
+      console.log('[CodeEditor] Leaving room:', meetingId);
       socket.emit(SOCKET_EVENTS.LEAVE_ROOM, { roomId: meetingId });
       socket.off(SOCKET_EVENTS.SERVER_CODE_CHANGE, onRemoteCode);
     };
@@ -33,14 +38,17 @@ const CodeEditor = ({ setActiveComponent }: { setActiveComponent: (comp: string)
   const onChange = (value: string) => {
     if (isRemote) {
       setIsRemote(false);
+      console.log('[CodeEditor] Ignoring local change due to remote update.');
       return;
     }
 
+    console.log('[CodeEditor] Sending local code change:', value);
     setCode(value);
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
     debounceTimer.current = setTimeout(() => {
+      console.log('[CodeEditor] Broadcasting code change:', value);
       socket.emit(SOCKET_EVENTS.CLIENT_CODE_CHANGE, { roomId: meetingId, code: value });
     }, 300);
 
