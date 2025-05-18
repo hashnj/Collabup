@@ -27,7 +27,7 @@ const MeetingTypeList = () => {
       const id = crypto.randomUUID();
       if (meetingState === "isInstantMeeting" && user) {
         toast.success("Instant meeting created");
-        router.push(`/meeting/${user.userName}/${id}`);
+        router.push(`/meeting/${id}`);
         return;
       }
 
