@@ -10,12 +10,7 @@ import {
   useTracks,
   TrackReference,
 } from "@livekit/components-react";
-import {
-  Track,
-  Room,
-  LocalTrack,
-  createLocalTracks,
-} from "livekit-client";
+import { Track, Room, LocalTrack, createLocalTracks } from "livekit-client";
 import {
   Mic,
   MicOff,
@@ -31,11 +26,15 @@ import {
   Hand,
   MessageCircle,
   SendHorizonal,
+  Copy,
 } from "lucide-react";
+import { AudioTrack } from "@livekit/components-react";
 import { toast } from "sonner";
 import Whiteboard from "@/components/Meeting/Whiteboard";
 import CodeEditor from "@/components/Meeting/CodeEditor";
 import { useUser } from "@/hooks/useUser";
+import ControlButton from "@/components/Meeting/ControlBar";
+import getLayoutWidths from "@/components/Meeting/Layout";
 
 const MeetingRoom = () => {
   const { joinRoom, leaveRoom, room } = useLiveKit();
@@ -44,7 +43,9 @@ const MeetingRoom = () => {
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [localTracks, setLocalTracks] = useState<LocalTrack[]>([]);
   const [token, setToken] = useState<string | null>(null);
-  const [raisedHands, setRaisedHands] = useState<Map<string, boolean>>(new Map());
+  const [raisedHands, setRaisedHands] = useState<Map<string, boolean>>(
+    new Map()
+  );
   const [chatMessages, setChatMessages] = useState<string[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [participants, setParticipants] = useState<string[]>([]);
@@ -56,21 +57,36 @@ const MeetingRoom = () => {
   const [activeComponent, setActiveComponent] = useState<string | null>(null);
   const router = useRouter();
   const params = useParams();
-    const userObj = useUser()?.user;
-    const username = userObj && typeof userObj === "object" && "userName" in userObj
+  const userObj = useUser()?.user;
+  const username =
+    userObj && typeof userObj === "object" && "userName" in userObj
       ? (userObj as { userName: string }).userName
       : `Guest${Math.floor(Math.random() * 1000)}`;
   const meetingid = (params?.meetingId as string) ?? "";
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    createLocalTracks({ video: true, audio: true }).then(setLocalTracks);
-    return () => leaveRoom();
+    createLocalTracks({ video: true, audio: true }).then((tracks) => {
+      setLocalTracks(tracks);
+      // Attach local audio preview
+      const audio = tracks.find((t) => t.kind === "audio");
+      if (audio) {
+        const el = document.createElement("audio");
+        el.srcObject = new MediaStream([audio.mediaStreamTrack]);
+        el.autoplay = true;
+        el.muted = true;
+        el.id = "local-preview-audio";
+        document.body.appendChild(el);
+      }
+    });
+    return () => {
+      leaveRoom();
+      const el = document.getElementById("local-preview-audio");
+      if (el) el.remove();
+    };
   }, []);
 
   useEffect(() => {
-    console.log("Joining room:", meetingid);
-    console.log("Username:", username);
     if (!room) return;
     updateParticipants(room);
     room.on("participantConnected", () => updateParticipants(room));
@@ -78,10 +94,15 @@ const MeetingRoom = () => {
     room.on("dataReceived", (payload, participant) => {
       const msg = JSON.parse(new TextDecoder().decode(payload));
       if (msg.type === "chat") {
-        setChatMessages((m) => [...m, `${participant?.identity ?? "Unknown"}: ${msg.message}`]);
+        setChatMessages((m) => [
+          ...m,
+          `${participant?.identity ?? "Unknown"}: ${msg.message}`,
+        ]);
       } else if (msg.type === "raise") {
         if (participant) {
-          setRaisedHands((prev) => new Map(prev).set(participant.identity, true));
+          setRaisedHands((prev) =>
+            new Map(prev).set(participant.identity, true)
+          );
         }
       }
     });
@@ -91,33 +112,36 @@ const MeetingRoom = () => {
     const token = await joinRoom(meetingid, username);
     if (!token) return toast.error("❌ Failed to join");
     setToken(token);
-    setJoined(true);
     for (const track of localTracks) {
       await room?.localParticipant?.publishTrack(track);
     }
+    setJoined(true);
   };
 
   const updateParticipants = (room: Room) => {
-    const all = [room.localParticipant.identity, ...Array.from(room.remoteParticipants.values()).map((p) => p.identity)];
+    const all = [
+      room.localParticipant.identity,
+      ...Array.from(room.remoteParticipants.values()).map((p) => p.identity),
+    ];
     setParticipants(all);
   };
 
   const toggleMic = () => {
-    const audioTrack = room?.localParticipant?.getTrackPublication(Track.Source.Microphone)?.track;
-    if (audioTrack) {
-      micEnabled ? audioTrack.mute() : audioTrack.unmute();
+    const track = localTracks.find((t) => t.kind === "audio");
+    if (track) {
+      track.mediaStreamTrack.enabled = !micEnabled;
+      console.log("Mic toggled", track.mediaStreamTrack.enabled,track.isMuted);
       setMicEnabled(!micEnabled);
     }
   };
 
   const toggleVideo = () => {
-    const videoTrack = room?.localParticipant?.getTrackPublication(Track.Source.Camera)?.track;
-    if (videoTrack) {
-      videoEnabled ? videoTrack.mute() : videoTrack.unmute();
+    const track = localTracks.find((t) => t.kind === "video");
+    if (track) {
+      track.mediaStreamTrack.enabled = !videoEnabled;
       setVideoEnabled(!videoEnabled);
     }
   };
-
   const toggleScreenShare = async () => {
     const localParticipant = room?.localParticipant;
     if (!localParticipant) return;
@@ -130,7 +154,10 @@ const MeetingRoom = () => {
       });
       setIsSharing(false);
     } else {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
       const screenTrack = stream.getVideoTracks()[0];
       await localParticipant.publishTrack(screenTrack, {
         source: Track.Source.ScreenShare,
@@ -142,13 +169,25 @@ const MeetingRoom = () => {
   };
 
   const raiseHand = () => {
-    const msg = { type: "raise" };
-    room?.localParticipant.publishData(
-      new TextEncoder().encode(JSON.stringify(msg)),
-      { reliable: true }
-    );
-    toast(`${username} raised their hand ✋`);
-    setRaisedHands((prev) => new Map(prev).set(username, true));
+    if (raisedHands.get(username)) {
+      setRaisedHands((prev) => {
+        const newMap = new Map(prev);
+        newMap.delete(username);
+        return newMap;
+      });
+      toast.info(`${username} lowered their hand ✋`);
+    } else {
+      setRaisedHands((prev) => new Map(prev).set(username, true));
+      toast.info(`${username} raised their hand ✋`);
+
+      setTimeout(() => {
+        setRaisedHands((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(username);
+          return newMap;
+        });
+      }, 5000);
+    }
   };
 
   const sendChat = () => {
@@ -167,84 +206,86 @@ const MeetingRoom = () => {
     router.push("/");
   };
 
-  const getLayoutWidths = () => {
-    if (whiteboardVisible && codeEditorVisible) return { whiteboard: "w-2/5", codeEditor: "w-2/5", video: "w-1/5" };
-    if (whiteboardVisible) return { whiteboard: "w-[70%]", codeEditor: "hidden", video: "w-[30%]" };
-    if (codeEditorVisible) return { whiteboard: "hidden", codeEditor: "w-[70%]", video: "w-[30%]" };
-    return { whiteboard: "hidden", codeEditor: "hidden", video: "w-full" };
-  };
+  
 
-  const { whiteboard, codeEditor, video } = getLayoutWidths();
+  const { whiteboard, codeEditor, video } = getLayoutWidths(whiteboardVisible, codeEditorVisible);
 
-  const ControlButton = ({ onIcon: OnIcon, offIcon: OffIcon, onClick, active = true }: any) => (
-    <button
-      onClick={onClick}
-      className={`w-12 h-12 rounded-full flex items-center justify-center transition ${
-        active ? "bg-gray-700 text-white" : "bg-gray-500 text-gray-300"
-      }`}
-    >
-      {active || !OffIcon ? <OnIcon className="w-6 h-6" /> : <OffIcon className="w-6 h-6" />}
-    </button>
-  );
+ 
 
-  const VideoGrid = () => {
-    const trackRefs = useTracks([Track.Source.Camera]);
+    const VideoGrid = () => {
+    const videoRefs = useTracks([Track.Source.Camera]);
+    const audioRefs = useTracks([Track.Source.Microphone]);
+    
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 w-full p-4">
-        {trackRefs.map((trackRef: TrackReference) => {
-          const pid = trackRef.participant.identity;
-          const isLocal = trackRef.participant.isLocal;
-          const handRaised = raisedHands.get(pid);
-          return (
-            <div key={trackRef.publication.trackSid} className="relative">
-              {trackRef.publication.track ? (
-  <VideoTrack
-    trackRef={trackRef}
-    className={`rounded-lg shadow w-full bg-gray-800 ${isLocal ? "transform scale-x-[-1]" : ""}`}
-  />
-) : (
-  <div className="w-full h-48 flex items-center justify-center bg-gray-700 text-white rounded-lg">
-    <span>No Camera</span>
-  </div>
-)}
-
-              {handRaised && (
-                <div className="absolute top-2 left-2 bg-yellow-500 text-black px-2 py-1 rounded text-xs font-semibold">
-                  ✋
-                </div>
-              )}
+    {videoRefs.map((trackRef: TrackReference) => {
+      const pid = trackRef.participant.identity;
+      const isLocal = trackRef.participant.isLocal;
+      const handRaised = raisedHands.get(pid);
+      return (
+        <div key={trackRef.publication.trackSid} className="relative">
+          <VideoTrack
+            trackRef={trackRef}
+            className="rounded-lg w-80"
+          />
+          {handRaised && (
+            <div className="absolute top-2 left-2 text-xl text-black px-2 py-1 rounded font-semibold">
+              ✋
             </div>
-          );
-        })}
-      </div>
+          )}
+          <div className="absolute bottom-2 right-2 bg-gray-800 bg-opacity-75 text-white px-2 py-1 rounded text-xs">
+            {pid}
+          </div>
+        </div>
+      );
+    })}
+        {audioRefs.map((trackRef) => (
+          <AudioTrack
+            key={trackRef.publication.trackSid}
+            trackRef={trackRef}
+          />
+        ))}
+         </div>
+      
     );
+  };
+
+  const copyText = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    navigator.clipboard.writeText(meetingid);
+    toast.info("Meeting ID copied to clipboard");
   };
 
   if (!joined) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-black text-white space-y-6">
         <div className="flex items-center space-x-4">
-          <ControlButton onIcon={Mic} offIcon={MicOff} onClick={() => setMicEnabled(!micEnabled)} active={micEnabled} />
-          <ControlButton onIcon={Video} offIcon={VideoOff} onClick={() => setVideoEnabled(!videoEnabled)} active={videoEnabled} />
+          <button onClick={toggleMic}>{micEnabled ? <Mic /> : <MicOff />}</button>
+          <button onClick={toggleVideo}>{videoEnabled ? <Video /> : <VideoOff />}</button>
         </div>
         <div className="flex gap-2">
-          {localTracks.map((track) =>
-            track.kind === "video" ? (
-              <video
-                key="preview"
-                ref={(el) => {
-                  if (el) {
-                    el.srcObject = new MediaStream([track.mediaStreamTrack]);
-                  }
-                }}
-                autoPlay
-                muted
-                className="w-64 h-48 rounded-lg bg-gray-800"
-              />
-            ) : null
-          )}
+          {localTracks.map((track) => {
+            if (track.kind === "video") {
+              return (
+                <video
+                  key="preview"
+                  ref={(el) => {
+                    if (el) {
+                      el.srcObject = new MediaStream([track.mediaStreamTrack]);
+                    }
+                  }}
+                  autoPlay
+                  className="w-64 h-44 rounded bg-gray-700"
+                />
+              );
+            }
+            return null;
+          })}
         </div>
-        <button onClick={handleJoin} className="bg-blue-600 px-6 py-3 rounded font-bold">
+        <button
+          onClick={handleJoin}
+          className="bg-blue-600 px-6 py-3 rounded font-bold"
+        >
           Join Meeting
         </button>
       </div>
@@ -266,7 +307,10 @@ const MeetingRoom = () => {
           <h3 className="text-lg font-semibold mb-4">Participants</h3>
           <ul>
             {participants.map((participant) => (
-              <li key={participant} className="mb-2 bg-gray-700 p-2 rounded hover:bg-gray-600 transition-all">
+              <li
+                key={participant}
+                className="mb-2 bg-gray-700 p-2 rounded hover:bg-gray-600 transition-all"
+              >
                 {participant}
               </li>
             ))}
@@ -276,7 +320,7 @@ const MeetingRoom = () => {
 
       <div className="flex-grow flex flex-col">
         <header className="flex justify-between items-center bg-gray-800 p-4 rounded-b-lg shadow-lg">
-          <h2 className="text-lg font-semibold">Room: {meetingid}</h2>
+          <h2 className="text-lg flex gap-2 font-semibold">Room: <div className="flex gap-2 cursor-pointer" onClick={(e)=>{copyText(e)}}>{meetingid} <Copy/></div></h2>
           <button
             onClick={leaveMeeting}
             className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition-all"
@@ -286,25 +330,68 @@ const MeetingRoom = () => {
         </header>
 
         <div className="flex-grow flex">
-          <div className={`${whiteboard} bg-gray-800 border-r border-gray-700`}>{whiteboardVisible && <Whiteboard setActiveComponent={setActiveComponent} />}</div>
-          <div className={`${codeEditor} bg-gray-800 border-r border-gray-700`}>{codeEditorVisible && <CodeEditor setActiveComponent={setActiveComponent} />}</div>
+          <div className={`${whiteboard} bg-gray-800 border-r border-gray-700`}>
+            {whiteboardVisible && (
+              <Whiteboard setActiveComponent={setActiveComponent} />
+            )}
+          </div>
+          <div className={`${codeEditor} bg-gray-800 border-r border-gray-700`}>
+            {codeEditorVisible && (
+              <CodeEditor setActiveComponent={setActiveComponent} />
+            )}
+          </div>
           <div className={`${video} bg-gray-900 flex overflow-y-auto`}>
-            <LiveKitRoom token={token} room={room} serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL!}>
+            <LiveKitRoom
+              token={token}
+              room={room}
+              serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL!}
+            >
               <VideoGrid />
             </LiveKitRoom>
           </div>
         </div>
 
         <footer className="flex justify-center gap-4 bg-gray-800 p-4 rounded-t-lg shadow-lg">
-          <ControlButton onIcon={Mic} offIcon={MicOff} onClick={toggleMic} active={micEnabled} />
-          <ControlButton onIcon={Video} offIcon={VideoOff} onClick={toggleVideo} active={videoEnabled} />
-          <ControlButton onIcon={ScreenShare} onClick={toggleScreenShare} active={isSharing} />
-          <ControlButton onIcon={PenBox} onClick={() => setWhiteboardVisible(!whiteboardVisible)} active={whiteboardVisible} />
-          <ControlButton onIcon={Code} onClick={() => setCodeEditorVisible(!codeEditorVisible)} active={codeEditorVisible} />
-          <ControlButton onIcon={Users} onClick={() => setShowParticipants(!showParticipants)} />
-          <ControlButton onIcon={MessageCircle} onClick={() => setShowChat(!showChat)} />
+          <ControlButton
+            onIcon={Mic}
+            offIcon={MicOff}
+            onClick={toggleMic}
+            active={micEnabled}
+          />
+          <ControlButton
+            onIcon={Video}
+            offIcon={VideoOff}
+            onClick={toggleVideo}
+            active={videoEnabled}
+          />
+          <ControlButton
+            onIcon={ScreenShare}
+            onClick={toggleScreenShare}
+            active={isSharing}
+          />
+          <ControlButton
+            onIcon={PenBox}
+            onClick={() => setWhiteboardVisible(!whiteboardVisible)}
+            active={whiteboardVisible}
+          />
+          <ControlButton
+            onIcon={Code}
+            onClick={() => setCodeEditorVisible(!codeEditorVisible)}
+            active={codeEditorVisible}
+          />
+          <ControlButton
+            onIcon={Users}
+            onClick={() => setShowParticipants(!showParticipants)}
+          />
+          <ControlButton
+            onIcon={MessageCircle}
+            onClick={() => setShowChat(!showChat)}
+          />
           <ControlButton onIcon={Hand} onClick={raiseHand} />
-          <ControlButton onIcon={Settings} onClick={() => toast("Settings coming soon")} />
+          <ControlButton
+            onIcon={Settings}
+            onClick={() => toast.info("Settings coming soon")}
+          />
         </footer>
       </div>
 
@@ -312,7 +399,9 @@ const MeetingRoom = () => {
         <aside className="w-80 bg-gray-800 p-4 flex flex-col justify-between border-l border-gray-700">
           <div className="overflow-y-auto flex-grow space-y-2">
             {chatMessages.map((msg, idx) => (
-              <div key={idx} className="bg-gray-700 p-2 rounded">{msg}</div>
+              <div key={idx} className="bg-gray-700 p-2 rounded">
+                {msg}
+              </div>
             ))}
           </div>
           <div className="flex items-center gap-2 mt-2">
@@ -322,7 +411,10 @@ const MeetingRoom = () => {
               onChange={(e) => setChatInput(e.target.value)}
               placeholder="Type a message..."
             />
-            <button onClick={sendChat} className="text-blue-400 hover:text-blue-300">
+            <button
+              onClick={sendChat}
+              className="text-blue-400 hover:text-blue-300"
+            >
               <SendHorizonal className="w-5 h-5" />
             </button>
           </div>
