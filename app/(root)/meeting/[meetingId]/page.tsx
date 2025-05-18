@@ -35,6 +35,7 @@ import {
 import { toast } from "sonner";
 import Whiteboard from "@/components/Meeting/Whiteboard";
 import CodeEditor from "@/components/Meeting/CodeEditor";
+import { useUser } from "@/hooks/useUser";
 
 const MeetingRoom = () => {
   const { joinRoom, leaveRoom, room } = useLiveKit();
@@ -55,8 +56,11 @@ const MeetingRoom = () => {
   const [activeComponent, setActiveComponent] = useState<string | null>(null);
   const router = useRouter();
   const params = useParams();
-  const username = params?.userName as string;
-  const meetingid = params?.meetingId as string;
+    const userObj = useUser()?.user;
+    const username = userObj && typeof userObj === "object" && "userName" in userObj
+      ? (userObj as { userName: string }).userName
+      : `Guest${Math.floor(Math.random() * 1000)}`;
+  const meetingid = (params?.meetingId as string) ?? "";
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -65,6 +69,8 @@ const MeetingRoom = () => {
   }, []);
 
   useEffect(() => {
+    console.log("Joining room:", meetingid);
+    console.log("Username:", username);
     if (!room) return;
     updateParticipants(room);
     room.on("participantConnected", () => updateParticipants(room));
